@@ -13,9 +13,9 @@ import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import average_precision_score, roc_auc_score
 
-from dataload import dataset, multi_label
+from dataloaders import dataset, multi_label
 from models.CPAN import CPAN
-from losses import AsymmetricLoss, GANLoss, Loss_train
+from utils.losses import AsymmetricLoss, GANLoss, Loss_train
 # from helper_functions import mAP, AverageMeter
 
 
@@ -163,10 +163,7 @@ def get_args():
     parser.add_argument('--batch-size', type=int, default=24)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--gpu_ids', default='0')
-    parser.add_argument('--data', default='')
-    parser.add_argument('--val_path', default='')
-    parser.add_argument('--label_path', default='')
-    parser.add_argument('--val_label', default='')
+    parser.add_argument('--data_root', default='')
     parser.add_argument('--in_channels', type=int, default=3)
     parser.add_argument('--classes', type=int, default=20)
     parser.add_argument('--num_features', type=int, default=3)
