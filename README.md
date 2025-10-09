@@ -28,6 +28,8 @@ Train New Model
 python train.py  --batch_size 16  --lr 0.00001 --classes 5  --dataset_name 'DDR' --dataroot data/
 ```
 
-## Citing ##
+## Citation ##
+
+If you find this useful for your research, please use the following.
 
 ```
