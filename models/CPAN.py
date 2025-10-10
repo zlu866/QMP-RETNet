@@ -145,7 +145,7 @@ class ClassifierHead(nn.Module):
 
 class CPAN(nn.Module):
     def __init__(self, in_channels, outputs, num_features,
-                 ckpt_pathG_A, ckpt_pathD_A, ckpt_pathG_B, ckpt_pathD_B, ckpt_pathc, ckpt_pathd, ckpt_pathe,
+
                  device, pretrained=True, heads=16, dropout=0.15):
         super().__init__()
         self.device = device
@@ -155,11 +155,19 @@ class CPAN(nn.Module):
         self.num_features = num_features
         self.pretrained = pretrained
         self.dropout = dropout
+        ckpt_path={
+            "ckpt_pathG_A":" ",
+            "ckpt_pathD_A":" ",
+            "ckpt_pathG_B":" ",
+            "ckpt_pathD_B":" ",
+            "ckpt_pathc":" ",
+            "ckpt_pathd":"",
+            "ckpt_pathe":" "
+        }
+        self.pix2pix1 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_A"], ckpt_path["ckpt_pathD_A"])
+        self.pix2pix2 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_B"], ckpt_path["ckpt_pathD_B"])
 
-        self.pix2pix1 = Pix2PixFFAModel(device, ckpt_pathG_A, ckpt_pathD_A)
-        self.pix2pix2 = Pix2PixFFAModel(device, ckpt_pathG_B, ckpt_pathD_B)
-
-        self.DRCR1 = DRCR_net(device, ckpt_pathe)
+        self.DRCR1 = DRCR_net(device, ckpt_path["ckpt_pathe"])
         self.pre_img_net = tvmodels.resnet18(pretrained=pretrained)
         self.pre_img = nn.Sequential(
             self.pre_img_net.conv1, self.pre_img_net.bn1, self.pre_img_net.relu, self.pre_img_net.maxpool,
@@ -169,9 +177,9 @@ class CPAN(nn.Module):
         # UNet for c/d
         pre_c = UNet(in_channels, 4)
         pre_d = UNet(in_channels, 3)
-        pre_c.load_state_dict(torch.load(ckpt_pathc))
+        pre_c.load_state_dict(torch.load(ckpt_path["ckpt_pathc"]))
 
-        state_dict = torch.load(ckpt_pathd)
+        state_dict = torch.load(ckpt_path["ckpt_pathd"])
         state_dict.pop('outc.conv.weight')
         state_dict.pop('outc.conv.bias')
         pre_d.load_state_dict(state_dict, strict=False)

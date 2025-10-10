@@ -29,6 +29,8 @@ class MyDataset(data.Dataset):
             self.ann_txt = os.path.join(root, 'train.csv')
         elif mode=='val':
             self.ann_txt = os.path.join(root, 'val.csv')
+        elif mode=='test':
+            self.ann_txt = os.path.join(root, 'val.csv')
         self.path = os.path.join(root, 'images')
         self.labels = pd.read_csv(self.ann_txt)
        # self.img = [os.path.join(self.path, img) for img in list(self.img_label.keys())]

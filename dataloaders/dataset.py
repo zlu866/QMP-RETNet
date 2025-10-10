@@ -12,7 +12,7 @@ from sklearn.decomposition import NMF
 import pandas as pd
 import cv2
 import json
-class BaseDataset(data.Dataset):
+class DDRDataset(data.Dataset):
     """This class is an abstract base class (ABC) for datasets.
 
     To create a subclass, you need to implement the following four functions:
