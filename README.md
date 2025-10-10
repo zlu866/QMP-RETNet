@@ -1,6 +1,5 @@
 ## Quasi-multimodal-based pathophysiological feature learning for retinal disease diagnosis<br/>
 Lu Zhang, Mengyu Jia, Huizhen Yu, Zuowei Wang, Fu Gui, Yatu Guo, and Wei Zhang<br/>
-<br/>
 <p align="center">
   <img src="figure/framework.JPG">
 
