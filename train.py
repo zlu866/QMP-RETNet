@@ -94,8 +94,8 @@ def train_model(model, device, train_loader, val_loader, args):
 
                 masks_pred, fake_A, fake_B = model(images)
                 loss_cls = criterion(masks_pred, labels)
-                loss_pix1 = 0.1 * loss_pix(fake_A, True) + loss_cls
-                loss_pix2 = 0.1 * loss_pix(fake_B, True) + loss_cls
+                loss_pix1 = 0.2 * loss_pix(fake_A, True) + loss_cls
+                loss_pix2 = 0.2 * loss_pix(fake_B, True) + loss_cls
 
                 optimizer_gan1.zero_grad()
                 loss_pix1.backward(retain_graph=True)
@@ -160,3 +160,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
