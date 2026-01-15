@@ -79,7 +79,7 @@ def train_model(model, device, train_loader, val_loader, args):
     loss_pix = GANLoss('lsgan').to(device)
     loss_drcr = Loss_train().to(device)
 
-    optimizer_cls = torch.optim.Adam(itertools.chain(model.pre_img_net.parameters(),model.pix2pix1.parameters(), model.pix2pix2.parameters(), model.DRCR1.parameters(), model.MLP, model.classifier), lr=args.lr)
+    optimizer_cls = torch.optim.Adam(itertools.chain(model.pre_img.parameters(),model.pix2pix1.parameters(), model.pix2pix2.parameters(), model.DRCR1.parameters(), model.MLP.parameters(), model.classifier.parameters()), lr=args.lr)
     scheduler = CosineAnnealingLR(optimizer_cls, T_max=args.epochs, eta_min=1e-8)
 
     for epoch in range(1, args.epochs + 1):
@@ -94,7 +94,7 @@ def train_model(model, device, train_loader, val_loader, args):
                 loss_cls = criterion(masks_pred, labels)
                 loss_pix1 = 0.2 * loss_pix(fake_A, True)
                 loss_pix2 = 0.2 * loss_pix(fake_B, True)
-                loss_msi = 0.2*loss_drcr(RGB_out, images)
+                loss_msi = 0.2 * loss_drcr(RGB_out, images[:, :2, :, :])
                 loss = loss_cls + loss_pix1 + loss_pix2 + loss_msi
                 optimizer_cls.zero_grad()
                 loss.backward()
@@ -125,11 +125,11 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--batch-size', type=int, default=24)
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--gpu_ids', default='0')
-    parser.add_argument('--data_root', default='./data')
+    parser.add_argument('--gpu_ids', default='1')
+    parser.add_argument('--data_root', default='')
     parser.add_argument('--in_channels', type=int, default=3)
     parser.add_argument('--classes', type=int, default=20)
-    parser.add_argument('--num_features', type=int, default=3)
+    parser.add_argument('--num_features', type=int, default=6)
     parser.add_argument('--dataset_name', default='MuReD')
     parser.add_argument('--save_checkpoint', action='store_true', default=True)
     parser.add_argument('--num_head', default=2)
@@ -146,7 +146,7 @@ def main():
                  num_features=args.num_features,
                  num_heads=args.num_head,
                  device=device)
-
+    model.to(device)
     train_loader, val_loader = get_dataloaders(args)
     train_model(model, device, train_loader, val_loader, args)
 
