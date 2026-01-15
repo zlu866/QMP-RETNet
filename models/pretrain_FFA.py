@@ -10,9 +10,6 @@ import torchvision.transforms as transforms
 import numpy
 from torch.nn import Flatten, init
 import torch.nn.functional as F
-###############################################################################
-# Helper Functions
-###############################################################################
 
 class CBAM(nn.Module):
     def __init__(self, in_channel, reduction_ratio=16):
@@ -55,7 +52,6 @@ class SpatialFilter(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        # 通道滤波
         x_filtered = torch.cat((torch.max(x, 1)[0].unsqueeze(1), torch.mean(x, 1).unsqueeze(1)), dim=1)
         x_filtered = self.relu(self.batch_norm(self.conv(x_filtered)))
         spatial_attention = torch.sigmoid(x_filtered)
@@ -262,10 +258,6 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
     return init_net(net, init_type, init_gain, gpu_ids)
 
-
-##############################################################################
-# Classes
-##############################################################################
 class GANLoss(nn.Module):
     """Define different GAN objectives.
 
@@ -1051,4 +1043,5 @@ class GANLoss(nn.Module):
                 loss = -prediction.mean()
             else:
                 loss = prediction.mean()
+
         return loss
