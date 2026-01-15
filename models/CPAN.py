@@ -3,11 +3,11 @@ import torch.nn as nn
 from einops import rearrange
 import torchvision.models as tvmodels
 
-from backbone import Resblock, SE_Block, Mlp, CrossAttention, classifier
+from models.backbone import Resblock, SE_Block, Mlp, CrossAttention, classifier
 
-from pretrain_FFA import Pix2PixFFAModel
-from DRCR import DRCR_net
-from pretrain_sm import UNet
+from models.pretrain_FFA import Pix2PixFFAModel
+from models.DRCR import DRCR_net
+from models.pretrain_sm import UNet
 
 class FeatureSelection1(nn.Module):
     def __init__(self, inchannel, outchannel, num_inputs):
@@ -21,20 +21,20 @@ class FeatureSelection1(nn.Module):
 
 
 class FeatureSelection2(nn.Module):
-    def __init__(self, inchannel, outchannel, num_inputs):
+    def __init__(self, inchannel, outchannel):
         super().__init__()
         self.SE = SE_Block(inchannel, ratio=16)
-        self.out = nn.Conv2d(inchannel, outchannel // 2, 1, bias=False)
+        self.out = nn.Conv2d(inchannel, outchannel, 1, bias=False)
 
     def forward(self, x):
         return self.out(self.SE(x))
 
 
 class FeatureSelection3(nn.Module):
-    def __init__(self, inchannel, outchannel, num_inputs):
+    def __init__(self, inchannel, outchannel):
         super().__init__()
         self.SE = SE_Block(inchannel, ratio=16)
-        self.out = nn.Conv2d(inchannel, outchannel // 6, 1, bias=False)
+        self.out = nn.Conv2d(inchannel, outchannel, 1, bias=False)
 
     def forward(self, x):
         return self.out(self.SE(x))
@@ -42,65 +42,69 @@ class FeatureSelection3(nn.Module):
 
 
 class Featurefusion1(nn.Module):
-    def __init__(self, channal1, channal2, num_heads, num_feature):
+    def __init__(self, channal1, num_heads, num_feature):
         super(Featurefusion1, self).__init__()
         self.CrossAttention = CrossAttention(channal1, channal1, num_heads, num_feature)
-        self.Norm = nn.LayerNorm(channal1, channal1)
-        # self.MLP = Mlp(channal1, channal1, channal1)
+        self.Norm = nn.LayerNorm(channal1)
+        self.MLP = Mlp(channal1, channal1, channal1)
 
     def forward(self, x, feature):
         y_att, att_w = self.CrossAttention(x, feature)
-        f_att = self.Norm(y_att + x.flatten(2).permute(0, 2, 1))
-        # out = (f_att + y_att + x).flatten(2).permute(0, 2, 1)
-        f_att = rearrange(f_att, 'b (h w) d -> b d h w', h=16, w=16)  # (b, emb_dim, h, w)
+        f_att = self.Norm(y_att)
+        f_att = self.MLP(f_att)+x.flatten(2).permute(0, 2, 1)
+        h = w = int(f_att.size(1) ** 0.5)
+        f_att = rearrange(f_att, 'b (h w) d -> b d h w', h=h, w=w)  # (b, emb_dim, h, w)
         return f_att, att_w  #out.permute(0, 2, 1)
 
 
 class Featurefusion2(nn.Module):
-    def __init__(self, channal1, channal2, num_heads, num_feature):
+    def __init__(self, channal1, num_heads, num_feature):
         super(Featurefusion2, self).__init__()
         self.CrossAttention = CrossAttention(channal1, channal1, num_heads, num_feature)
-        self.Norm = nn.LayerNorm(channal1, channal1)
-        # self.MLP = Mlp(channal1, channal1, channal1)
+        self.Norm = nn.LayerNorm(channal1)
+        self.MLP = Mlp(channal1, channal1, channal1)
 
     def forward(self, x, feature):
         y_att, att_w = self.CrossAttention(x, feature)
-        f_att = self.Norm(y_att + x.flatten(2).permute(0, 2, 1))
+        f_att = self.Norm(y_att)
         # out = (f_att + y_att + x).flatten(2).permute(0, 2, 1)
-        f_att = rearrange(f_att, 'b (h w) d -> b d h w', h=16, w=16)  # (b, emb_dim, h, w)
+        f_att = self.MLP(f_att)+x.flatten(2).permute(0, 2, 1)
+        h = w = int(f_att.size(1) ** 0.5)
+        f_att = rearrange(f_att, 'b (h w) d -> b d h w', h=h, w=w)  # (b, emb_dim, h, w)
         return f_att, att_w  #out.permute(0, 2, 1)
 
 class Featurefusion3(nn.Module):
-    def __init__(self, channal1, channal2, num_heads, num_feature):
+    def __init__(self, channal1, num_heads, num_feature):
         super(Featurefusion3, self).__init__()
         self.CrossAttention = CrossAttention(channal1, channal1, num_heads, num_feature)
-        self.Norm = nn.LayerNorm(channal1, channal1)
+        self.Norm = nn.LayerNorm(channal1)
 
-        # self.MLP = Mlp(channal1, channal1, channal1)
+        self.MLP = Mlp(channal1, channal1, channal1)
 
     def forward(self, x, feature):
         y_att, att_w = self.CrossAttention(x, feature)
-        f_att = self.Norm(y_att + x.flatten(2).permute(0, 2, 1))
+        f_att = self.Norm(y_att)
         # out = (f_att + y_att + x).flatten(2).permute(0, 2, 1)
+        f_att = self.MLP(f_att)+x.flatten(2).permute(0, 2, 1)
         # f_att = rearrange(f_att, 'b (h w) d -> b d h w', h=16, w=16)  # (b, emb_dim, h, w)
         return f_att, att_w  #out.permute(0, 2, 1)
 
 
 class MultiFeatureProcessor(nn.Module):
-    def __init__(self, img_channel: int, num_features: int = 6):
+    def __init__(self, img_channel=512, num_heads=2, num_features=6):
         super().__init__()
 
         self.selectors = nn.ModuleList([
             FeatureSelection1(img_channel, img_channel, num_features),
-            FeatureSelection2(img_channel * num_features, img_channel * num_features, num_features),
-            FeatureSelection3(img_channel * num_features // 2, img_channel * num_features, num_features)
+            FeatureSelection2(img_channel * num_features, img_channel * num_features//3),
+            FeatureSelection3(img_channel * num_features // 3, img_channel * num_features//6)
         ])
 
         self.fusion_levels = nn.ModuleList([
             nn.ModuleList([
-                Featurefusion1(img_channel, img_channel, num_heads=1, num_feature=6),
-                Featurefusion2(img_channel, img_channel, num_heads=1, num_feature=3),
-                Featurefusion3(img_channel, img_channel, num_heads=1, num_feature=1)
+                Featurefusion1(img_channel, num_heads, num_features),
+                Featurefusion2(img_channel, num_heads, num_features//3),
+                Featurefusion3(img_channel, num_heads, num_features//6)
             ]) for _ in range(num_features)
         ])
 
@@ -123,15 +127,13 @@ class MultiFeatureProcessor(nn.Module):
         for i, fusion_modules in enumerate(self.fusion_levels):
             y, att_w = fusion_modules[0](z_hwc[i], f[0])
             for level in range(1, 3):
-                y, att_w = fusion_modules[level](y.permute(0, 2, 1).view(y.size(0), -1, 1).permute(0,2,1) if False else y, f[level])
+                y, att_w = fusion_modules[level](y, f[level])
 
             outputs.append(y)
             attentions.append(att_w)
 
         return outputs, attentions
 
-
-# ---------------------- Classifier & CPAN ----------------------
 class ClassifierHead(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
@@ -144,34 +146,33 @@ class ClassifierHead(nn.Module):
 
 
 class CPAN(nn.Module):
-    def __init__(self, in_channels, outputs, num_features,
-
-                 device, pretrained=True, heads=16, dropout=0.15):
+    def __init__(self, in_channels, outputs, num_features, num_heads,
+                 device, pretrained=True, dropout=0.15):
         super().__init__()
         self.device = device
         self.in_channels = in_channels
         self.outputs = outputs
-        self.heads = heads
+        self.num_head = num_heads
         self.num_features = num_features
         self.pretrained = pretrained
         self.dropout = dropout
         ckpt_path={
-            "ckpt_pathG_A":" ",
-            "ckpt_pathD_A":" ",
-            "ckpt_pathG_B":" ",
-            "ckpt_pathD_B":" ",
-            "ckpt_pathc":" ",
-            "ckpt_pathd":"",
-            "ckpt_pathe":" "
+            "ckpt_pathG_A":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_A.pth",
+            "ckpt_pathD_A":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_V.pth",
+            "ckpt_pathG_B":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_A.pth",
+            "ckpt_pathD_B":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_V.pth",
+            "ckpt_pathc":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_lesion.pth",
+            "ckpt_pathd":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_optic.pth",
+            "ckpt_pathe":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/net_153epoch.pth"
         }
         self.pix2pix1 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_A"], ckpt_path["ckpt_pathD_A"])
         self.pix2pix2 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_B"], ckpt_path["ckpt_pathD_B"])
 
         self.DRCR1 = DRCR_net(device, ckpt_path["ckpt_pathe"])
-        self.pre_img_net = tvmodels.resnet18(pretrained=pretrained)
+        pre_img_net = tvmodels.resnet18(pretrained=pretrained)
         self.pre_img = nn.Sequential(
-            self.pre_img_net.conv1, self.pre_img_net.bn1, self.pre_img_net.relu, self.pre_img_net.maxpool,
-            self.pre_img_net.layer1, self.pre_img_net.layer2, self.pre_img_net.layer3, self.pre_img_net.layer4
+            pre_img_net.conv1, pre_img_net.bn1, pre_img_net.relu, pre_img_net.maxpool,
+            pre_img_net.layer1, pre_img_net.layer2, pre_img_net.layer3, pre_img_net.layer4
         )
 
         # UNet for c/d
@@ -194,10 +195,8 @@ class CPAN(nn.Module):
 
         # feature fusion blocks
         img_channel = 512
-        self.feature_f = MultiFeatureProcessor(img_channel=img_channel, num_features=num_features)
+        self.feature_f = MultiFeatureProcessor(img_channel=img_channel, num_heads=self.num_head, num_features=self.num_features)
         self.MLP = Mlp(img_channel * num_features, img_channel, img_channel)
-        self.layernorm = nn.LayerNorm(img_channel * num_features)
-        # self.classifier = classifier(outputs, num_features)
         self.classifier = ClassifierHead(outputs)
 
     def forward(self, img):
@@ -206,7 +205,6 @@ class CPAN(nn.Module):
         z_b, fake_B = self.pix2pix2(img)
 
         z_img = self.pre_img(img)  # (B, C_img, H', W')
-
         z_c = self.pre_c(img)
         z_c = self.reduce_feature_maps(z_c)  # -> (B, 512, H', W')
         z_d = self.pre_d(img)
@@ -244,6 +242,7 @@ if __name__ == '__main__':
     in_channels = 3
     outputs = 20
     num_features = 6
+    num_head = 1
     device = torch.device(f'cuda:{0}')
     # device = torch.device('cpu')
     image = PIL.Image.open('/mnt/home/zlu/code/MuReD/img_512/437.png').convert('RGB')
@@ -253,7 +252,7 @@ if __name__ == '__main__':
     img = t(image).unsqueeze(0)
     mask = [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     mask = torch.tensor(mask).unsqueeze(0)
-    model = CPAN(in_channels, outputs, num_features, ckpt_path1, ckpt_path2, ckpt_path3, ckpt_path4, ckpt_path5,ckpt_path6, ckpt_path7, device=device)
+    model = CPAN(in_channels, outputs, num_features,num_head, device)
     model = model.to(device)
     for k in model.state_dict():
         print(k)

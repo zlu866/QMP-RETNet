@@ -300,25 +300,21 @@ class DRCR_net(nn.Module):
         self.device = device
         self.net_G = DRCR(2, 7, 21, 1)
         checkpoint = torch.load(ckpt)
-        # start_epoch = checkpoint['epoch']
-        # iteration = checkpoint['iter']
         self.net_G.load_state_dict(checkpoint['state_dict'], strict=False)
-        # self.net_G.load_state_dict(torch.load(ckpt))
-        for param in self.net_G.w_gen_R.parameters():
-            param.requires_grad = False
-        for param in self.net_G.w_gen_G.parameters():
-            param.requires_grad = False
-        self.k = nn.Sequential(self.net_G.input_conv2D, self.net_G.input_prelu2D, self.net_G.head_conv2D, self.net_G.denosing, self.net_G.tail_conv2D, self.net_G.output_prelu2D, self.net_G.output_conv2D)
-        for param in self.k.parameters():
-            param.requires_grad = False
-        for param in self.net_G.backbone:
-            param.requires_grad = False
-        # self.backbone1 = self.net_G.backbone
-        # for param in self.backbone1.parameters():
-        #     param.requires_grad = False
-        for param in self.net_G.backbone_1.decoder.parameters():
-            param.requires_grad = False
+        self.freeze_by_name(self.net_G,
+                            module_names=[
+                                "w_gen_R","w_gen_G","backbone",
+                                "input_conv2D","input_prelu2D",
+                                "head_conv2D", "denosing","tail_conv2D",
+                                "output_prelu2D","output_conv2D",
+                                "backbone_1.decoder"])
         self.criterion = Loss_train().to(self.device)
+
+    def freeze_by_name(self, model, module_names):
+        for name, module in model.named_modules():
+            if name in module_names:
+                for p in module.parameters():
+                    p.requires_grad = False
 
     def forward(self, x):
         self.real = x[:, :2, :, :]

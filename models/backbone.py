@@ -84,10 +84,7 @@ class CrossAttention(nn.Module):
         """
         b, c, h, w = x.shape
 
-        # map to embedding dim
-        # x_emb = self.proj_in(x)              # (b, emb_dim, h, w)
         x_flat = rearrange(x, 'b d h w -> b (h w) d')    # (b, seq_q, emb_dim)
-        # ctx_emb = self.proj_in(context) if context.shape[1] == c else self.proj_in(context)
         ctx_flat = rearrange(context, 'b d h w -> b (h w) d') # (b, seq_k, emb_dim)
 
         # Q K V
@@ -95,7 +92,6 @@ class CrossAttention(nn.Module):
         K = self.Wk(ctx_flat) # (b, seq_k, emb_dim)
         V = self.Wv(ctx_flat) # (b, seq_k, emb_dim)
 
-        # split heads: (b, heads, seq, depth)
         Q = Q.view(b, -1, self.num_heads, self.depth).transpose(1, 2)
         K = K.view(b, -1, self.num_heads, self.depth).transpose(1, 2)
         V = V.view(b, -1, self.num_heads, self.depth).transpose(1, 2)
@@ -104,7 +100,6 @@ class CrossAttention(nn.Module):
         att = torch.einsum('bnid,bnjd->bnij', Q, K) * self.scale  # (b, heads, seq_q, seq_k)
 
         if pad_mask is not None:
-            # pad_mask expected shape (b, seq_k) or (b, seq_q, seq_k)
             if pad_mask.dim() == 2:
                 mask = pad_mask.unsqueeze(1).unsqueeze(2)  # (b,1,1,seq_k)
                 att = att.masked_fill(mask, float('-inf'))
@@ -116,11 +111,7 @@ class CrossAttention(nn.Module):
         out = torch.einsum('bnij, bnjd -> bnid', att_weights, V)  # (b, heads, seq_q, depth)
         out = out.transpose(1, 2).contiguous().view(b, -1, self.emb_dim)  # (b, seq_q, emb_dim)
 
-        # reshape back to spatial
-        # out_proj = self.proj_out(out_spatial)  # (b, channels, h, w)
-
         return out, att_weights
-
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.15):
