@@ -157,13 +157,13 @@ class CPAN(nn.Module):
         self.pretrained = pretrained
         self.dropout = dropout
         ckpt_path={
-            "ckpt_pathG_A":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_A.pth",
-            "ckpt_pathD_A":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_V.pth",
-            "ckpt_pathG_B":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_A.pth",
-            "ckpt_pathD_B":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_V.pth",
-            "ckpt_pathc":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_lesion.pth",
-            "ckpt_pathd":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_optic.pth",
-            "ckpt_pathe":"/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/net_153epoch.pth"
+            "ckpt_pathG_A":"",
+            "ckpt_pathD_A":"",
+            "ckpt_pathG_B":"",
+            "ckpt_pathD_B":"",
+            "ckpt_pathc":"",
+            "ckpt_pathd":"",
+            "ckpt_pathe":""
         }
         self.pix2pix1 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_A"], ckpt_path["ckpt_pathD_A"])
         self.pix2pix2 = Pix2PixFFAModel(device, ckpt_path["ckpt_pathG_B"], ckpt_path["ckpt_pathD_B"])
@@ -231,14 +231,6 @@ import numpy as np
 import torchvision
 if __name__ == '__main__':
     feature_maps = []
-    gradients = []
-    ckpt_path1 ='/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_A.pth'
-    ckpt_path2 ='/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_A.pth'
-    ckpt_path3 ='/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_G_V.pth'
-    ckpt_path4 = '/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/600_net_D_V.pth'
-    ckpt_path5 = '/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_lesion.pth'
-    ckpt_path6 = '/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/checkpoint_epoch_optic.pth'
-    ckpt_path7 = '/mnt/home/zlu/code/Retinal_CPANet/pre-trained model/net_153epoch.pth'
     in_channels = 3
     outputs = 20
     num_features = 6
@@ -258,4 +250,5 @@ if __name__ == '__main__':
         print(k)
     for name, para in model.named_parameters():
         print(name, ':', para.size())
+
     output = model(img.to(device))
