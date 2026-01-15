@@ -326,8 +326,8 @@ class DRCR_net(nn.Module):
         QE_R_0 = self.w_out_R[:, :6, :, :]
         QE_G_0 = self.w_out_G[:, :6, :, :]
 
-        QE_R = torch.tensor(QE_R_0.expand_as(self.img_out[:, :6, :, :])).cuda()
-        QE_G = torch.tensor(QE_G_0.expand_as(self.img_out[:, :6, :, :])).cuda()
+        QE_R = torch.tensor(QE_R_0.expand_as(self.img_out[:, :6, :, :])).to(device)
+        QE_G = torch.tensor(QE_G_0.expand_as(self.img_out[:, :6, :, :])).to(device)
         R_out = torch.sum(self.img_out[:, :6, :, :] * QE_R, dim=1, keepdim=True)
         G_out = torch.sum(self.img_out[:, :6, :, :] * QE_G, dim=1, keepdim=True)
         RGB_out = torch.cat([R_out, G_out], dim=1)
