@@ -15,10 +15,10 @@ from utils.evaluate import evaluate_dr,evaluate_multi_label
 from models.DRCR import Loss_train
 from models.pretrain_FFA import GANLoss
 # from utils.visualization import confusion, ROC
-
+import itertools
 def get_dataloaders(args):
 
-    add_noise_transform = multi_label.AddNoiseWithSNR(snr_ratio=0.10)
+    # add_noise_transform = multi_label.AddNoiseWithSNR(snr_ratio=0.10)
     scale_size, crop_size = 640, 512
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -37,14 +37,14 @@ def get_dataloaders(args):
             transforms.Resize((crop_size, crop_size)),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            add_noise_transform,
+            # add_noise_transform,
             normalize
         ]),
         "val": transforms.Compose([
             transforms.Resize((scale_size, scale_size)),
             transforms.CenterCrop(crop_size),
             transforms.ToTensor(),
-            add_noise_transform,
+            # add_noise_transform,
             normalize
         ])
     }
@@ -79,9 +79,7 @@ def train_model(model, device, train_loader, val_loader, args):
     loss_pix = GANLoss('lsgan').to(device)
     loss_drcr = Loss_train().to(device)
 
-    optimizer_gan1 = torch.optim.Adam(model.pix2pix1.parameters(), lr=args.lr)
-    optimizer_gan2 = torch.optim.Adam(model.pix2pix2.parameters(), lr=args.lr)
-    optimizer_cls = torch.optim.Adam(model.cls.parameters(), lr=args.lr)
+    optimizer_cls = torch.optim.Adam(itertools.chain(model.pre_img_net.parameters(),model.pix2pix1.parameters(), model.pix2pix2.parameters(), model.DRCR1.parameters(), model.MLP, model.classifier), lr=args.lr)
     scheduler = CosineAnnealingLR(optimizer_cls, T_max=args.epochs, eta_min=1e-8)
 
     for epoch in range(1, args.epochs + 1):
@@ -92,24 +90,17 @@ def train_model(model, device, train_loader, val_loader, args):
             for batch in train_loader:
                 images, labels = batch['image'].to(device), batch['label'].to(device)
 
-                masks_pred, fake_A, fake_B = model(images)
+                masks_pred, fake_A, fake_B, RGB_out = model(images)
                 loss_cls = criterion(masks_pred, labels)
-                loss_pix1 = 0.2 * loss_pix(fake_A, True) + loss_cls
-                loss_pix2 = 0.2 * loss_pix(fake_B, True) + loss_cls
-
-                optimizer_gan1.zero_grad()
-                loss_pix1.backward(retain_graph=True)
-                optimizer_gan1.step()
-
-                optimizer_gan2.zero_grad()
-                loss_pix2.backward(retain_graph=True)
-                optimizer_gan2.step()
-
+                loss_pix1 = 0.2 * loss_pix(fake_A, True)
+                loss_pix2 = 0.2 * loss_pix(fake_B, True)
+                loss_msi = 0.2*loss_drcr(RGB_out, images)
+                loss = loss_cls + loss_pix1 + loss_pix2 + loss_msi
                 optimizer_cls.zero_grad()
-                loss_cls.backward()
+                loss.backward()
                 optimizer_cls.step()
 
-                epoch_loss += loss_cls.item()
+                epoch_loss += loss.item()
                 pbar.update(images.size(0))
                 pbar.set_postfix(loss=loss_cls.item())
 
@@ -141,6 +132,7 @@ def get_args():
     parser.add_argument('--num_features', type=int, default=3)
     parser.add_argument('--dataset_name', default='MuReD')
     parser.add_argument('--save_checkpoint', action='store_true', default=True)
+    parser.add_argument('--num_head', default=2)
     return parser.parse_args()
 
 
@@ -152,6 +144,7 @@ def main():
     model = CPAN(in_channels=args.in_channels,
                  outputs=args.classes,
                  num_features=args.num_features,
+                 num_heads=args.num_head,
                  device=device)
 
     train_loader, val_loader = get_dataloaders(args)
@@ -160,4 +153,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

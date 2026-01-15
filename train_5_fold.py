@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
+import itertools
 from dataloaders import dataset, multi_label
 from models.CPAN import CPAN
 from utils.losses import AsymmetricLoss
@@ -61,9 +61,10 @@ def train_one_fold(model, train_loader, val_loader, device, args, fold):
     loss_pix = GANLoss('lsgan').to(device)
     loss_drcr = Loss_train().to(device)
 
-    optimizer_gan1 = torch.optim.Adam(model.pix2pix1.parameters(), lr=args.lr)
-    optimizer_gan2 = torch.optim.Adam(model.pix2pix2.parameters(), lr=args.lr)
-    optimizer_cls = torch.optim.Adam(model.cls.parameters(), lr=args.lr)
+    optimizer_cls = torch.optim.Adam(
+        itertools.chain(model.pre_img_net.parameters(), model.pix2pix1.parameters(), model.pix2pix2.parameters(),
+                        model.DRCR1.parameters(), model.MLP, model.classifier), lr=args.lr)
+    scheduler = CosineAnnealingLR(optimizer_cls, T_max=args.epochs, eta_min=1e-8)
     scheduler = CosineAnnealingLR(optimizer_cls, T_max=args.epochs, eta_min=1e-8)
 
     best_metric = 0
@@ -75,22 +76,14 @@ def train_one_fold(model, train_loader, val_loader, device, args, fold):
         with tqdm(total=len(train_loader.dataset), desc=f'Fold {fold} | Epoch {epoch}/{args.epochs}', unit='img') as pbar:
             for batch in train_loader:
                 images, labels = batch['image'].to(device), batch['label'].to(device)
-                masks_pred, fake_A, fake_B = model(images)
-
+                masks_pred, fake_A, fake_B, RGB_out = model(images)
                 loss_cls = criterion(masks_pred, labels)
-                loss_pix1 = 0.1 * loss_pix(fake_A, True) + loss_cls
-                loss_pix2 = 0.1 * loss_pix(fake_B, True) + loss_cls
-
-                optimizer_gan1.zero_grad()
-                loss_pix1.backward(retain_graph=True)
-                optimizer_gan1.step()
-
-                optimizer_gan2.zero_grad()
-                loss_pix2.backward(retain_graph=True)
-                optimizer_gan2.step()
-
+                loss_pix1 = 0.2 * loss_pix(fake_A, True)
+                loss_pix2 = 0.2 * loss_pix(fake_B, True)
+                loss_msi = 0.2 * loss_drcr(RGB_out, images)
+                loss = loss_cls + loss_pix1 + loss_pix2 + loss_msi
                 optimizer_cls.zero_grad()
-                loss_cls.backward()
+                loss.backward()
                 optimizer_cls.step()
 
                 epoch_loss += loss_cls.item()
